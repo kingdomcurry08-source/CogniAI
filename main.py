@@ -1,214 +1,169 @@
 import streamlit as st
 import openai
-import re
 import json
-import io
-import time
+import re
 import PyPDF2
+import time
+from datetime import datetime
 
-# --- 1. ULTRA-AERO UI ENGINE ---
-st.set_page_config(page_title="INFINITY OS", page_icon="⚡", layout="wide")
+# --- 1. CYBER-MINIMALIST UI ENGINE ---
+st.set_page_config(page_title="INFINITY OS", page_icon="🧬", layout="wide")
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap');
 
-    :root {
-        --primary: #00f2ff;
-        --accent: #7000ff;
-        --glass: rgba(255, 255, 255, 0.03);
-    }
+    :root { --neon: #00f2ff; --void: #050505; --plasma: #7000ff; }
 
     html, body, [data-testid="stAppViewContainer"] {
-        background: #050505 !important;
-        background-image: 
-            radial-gradient(circle at 20% 30%, rgba(112, 0, 255, 0.15) 0%, transparent 40%),
-            radial-gradient(circle at 80% 70%, rgba(0, 242, 255, 0.1) 0%, transparent 40%) !important;
-        color: #e0e0e0 !important;
-        font-family: 'Inter', sans-serif;
+        background: var(--void) !important;
+        background-image: radial-gradient(circle at 50% 10%, rgba(112, 0, 255, 0.15) 0%, transparent 50%) !important;
+        color: #e0e0e0 !important; font-family: 'JetBrains Mono', monospace;
     }
 
-    /* NEON GLASS NAVIGATION */
-    .nav-bar {
-        position: fixed; top: 0; left: 0; right: 0; height: 85px;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(25px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 0 4%; z-index: 9999;
-    }
+    /* NEON HUD COMPONENTS */
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; border-bottom: 1px solid rgba(0, 242, 255, 0.2); }
+    .stTabs [data-baseweb="tab"] { color: #666 !important; transition: 0.3s; }
+    .stTabs [aria-selected="true"] { color: var(--neon) !important; text-shadow: 0 0 10px var(--neon); }
 
-    /* BENTO BOX 2.0 */
     .bento-node {
-        background: var(--glass);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 28px; padding: 25px;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .bento-node:hover {
-        border-color: var(--primary);
-        transform: translateY(-5px);
-        box-shadow: 0 12px 40px 0 rgba(0, 242, 255, 0.1);
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px; padding: 25px;
+        box-shadow: inset 0 0 20px rgba(112, 0, 255, 0.05);
     }
 
-    /* GLOW BUTTONS */
     .stButton>button {
-        background: linear-gradient(90deg, var(--accent), var(--primary)) !important;
-        color: white !important; border: none !important;
-        border-radius: 16px !important; padding: 12px 28px !important;
-        font-weight: 600 !important; letter-spacing: 0.5px !important;
-        transition: 0.3s !important; text-transform: uppercase; font-size: 12px;
+        background: linear-gradient(45deg, var(--plasma), var(--neon)) !important;
+        border: none !important; border-radius: 12px !important; color: white !important;
+        font-weight: 700 !important; letter-spacing: 1px; width: 100%;
     }
-    .stButton>button:hover {
-        box-shadow: 0 0 20px rgba(0, 242, 255, 0.4) !important;
-        transform: scale(1.02);
-    }
-
-    [data-testid="stHeader"] { display: none; }
-    [data-testid="stSidebar"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
 
-# --- 2. THE INTELLIGENCE CORE (FIXES JSON ERROR) ---
-def safe_ai_request(prompt, is_json=False):
-    """Encapsulated AI call with Smart Retry and Auto-Correction."""
+# --- 2. THE NEURAL CORE (SCHEMA GUARDIAN + AUTO-PARSE) ---
+def neural_engine(input_text, mode="sync"):
     try:
         client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        params = {
-            "model": "gpt-4o",
-            "messages": [{"role": "system", "content": "You are a specialized OS engine. Always use LaTeX for math."},
-                         {"role": "user", "content": prompt}]
+        sys_msg = "Return JSON ONLY. Keys: 'mindmap' (Mermaid code), 'cards' (Q/A), 'quiz' (MCQ), 'summary'."
+
+        res = client.chat.completions.create(
+            model="gpt-4o",
+            response_format={"type": "json_object"},
+            messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": input_text[:5000]}]
+        )
+
+        raw = res.choices[0].message.content
+        data = json.loads(re.sub(r'```json|```', '', raw).strip())
+
+        # Normalize Keys (The Schema Guardian)
+        return {
+            "mindmap": data.get("mindmap") or "graph TD\nA[Topic] --> B[Detail]",
+            "cards": data.get("cards") or data.get("flashcards") or [],
+            "quiz": data.get("quiz") or data.get("questions") or [],
+            "summary": data.get("summary") or "Sync Complete."
         }
-        if is_json:
-            params["response_format"] = {"type": "json_object"}
-            params["messages"][0]["content"] += " Return RAW JSON only."
-
-        response = client.chat.completions.create(**params)
-        content = response.choices[0].message.content
-
-        if is_json:
-            return json.loads(re.sub(r'```json|```', '', content).strip())
-        return content
     except Exception as e:
         return {"error": str(e)}
 
 
-def latex_fixer(text):
-    """Turns raw AI code into visual math symbols."""
-    text = re.sub(r'\\frac\{([^}]*)\}\{([^}]*)\}', r'$\\frac{\1}{\2}$', text)
-    text = re.sub(r'\\sqrt\{([^}]*)\}', r'$\\sqrt{\1}$', text)
-    return text
+# --- 3. PERSISTENT STATE ---
+states = {'active_page': 'HOME', 'xp': 0, 'lvl': 1, 'data': None}
+for k, v in states.items():
+    if k not in st.session_state: st.session_state[k] = v
 
-
-# --- 3. STATE ENGINE ---
-if 'active_page' not in st.session_state: st.session_state.active_page = 'Home'
-if 'flashcards' not in st.session_state: st.session_state.flashcards = []
-if 'quiz_data' not in st.session_state: st.session_state.quiz_data = []
-
-# --- 4. NAVIGATION ---
-st.markdown('<div class="nav-bar">', unsafe_allow_html=True)
-c1, c2, c3, c4, c5 = st.columns([2, 1, 1, 1, 1])
-with c1: st.markdown("<h2 style='margin:0; font-family:JetBrains Mono; color:#00f2ff;'>∞ INFINITY</h2>",
-                     unsafe_allow_html=True)
-pages = ["Home", "Math Terminal", "Study Lab", "Vision Studio"]
-for i, p in enumerate(pages):
-    with [c2, c3, c4, c5][i]:
-        if st.button(p, key=f"btn_{p}"): st.session_state.active_page = p
-st.markdown('</div>', unsafe_allow_html=True)
+# --- 4. NAVIGATION HUD ---
+st.markdown("<h2 style='text-align:center; color:var(--neon);'>∞ INFINITY</h2>", unsafe_allow_html=True)
+cols = st.columns([1, 1, 1, 1])
+if cols[0].button("🛰️ HOME"): st.session_state.active_page = "HOME"
+if cols[1].button("🧠 LAB"): st.session_state.active_page = "LAB"
+if cols[2].button("🔭 VISION"): st.session_state.active_page = "VISION"
+if cols[3].button("⚡ MATH"): st.session_state.active_page = "MATH"
 
 
 # --- 5. PAGE MODULES ---
 
 def render_home():
-    st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
-    st.markdown(
-        "<h1 style='font-size:100px; text-align:center; font-family:JetBrains Mono; font-weight:800; background: -webkit-linear-gradient(#fff, #333); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>SYSTEM ACTIVE.</h1>",
-        unsafe_allow_html=True)
-
-    col_a, col_b, col_c = st.columns(3)
-    with col_a: st.markdown("<div class='bento-node'><h3>⚡ Performance</h3><p>GPU Acceleration Active</p></div>",
-                            unsafe_allow_html=True)
-    with col_b: st.markdown("<div class='bento-node'><h3>🧠 Neural Sync</h3><p>GPT-4o Ready</p></div>",
-                            unsafe_allow_html=True)
-    with col_c: st.markdown("<div class='bento-node'><h3>📂 File System</h3><p>Cloud Storage Online</p></div>",
-                            unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.markdown(f"<h1>WELCOME TO LVL {st.session_state.lvl}</h1>", unsafe_allow_html=True)
+        st.progress(st.session_state.xp / 100)
+        st.write(f"Neural Sync XP: {st.session_state.xp}/100")
+    with c2:
+        st.markdown(
+            "<div class='bento-node'><h3>System Status</h3><p>🟢 GPT-4o Online</p><p>🟢 Vision Engine Active</p></div>",
+            unsafe_allow_html=True)
 
 
-def render_math():
-    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
-    st.title("Math Terminal")
-    st.markdown("<p style='color:#00f2ff;'>System: Solve for x or describe the problem.</p>", unsafe_allow_html=True)
-
-    query = st.chat_input("Enter complex math...")
-    if query:
-        with st.spinner("Calculating..."):
-            res = safe_ai_request(query)
-            st.markdown(latex_fixer(res))
-
-
-def render_study_lab():
-    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+def render_lab():
+    st.title("Neural Study Lab")
     col1, col2 = st.columns([1, 2])
 
     with col1:
-        st.markdown("<div class='bento-node'><h3>Ingest Content</h3>", unsafe_allow_html=True)
-        file = st.file_uploader("Upload PDF / TXT", type=["pdf", "txt"])
-        if file and st.button("🚀 DECONSTRUCT CONTENT"):
-            with st.spinner("Scanning..."):
-                text = ""
-                if file.type == "application/pdf":
-                    reader = PyPDF2.PdfReader(file)
-                    text = "".join([p.extract_text() for p in reader.pages])
-                else:
-                    text = file.read().decode()
+        st.markdown("<div class='bento-node'>", unsafe_allow_html=True)
+        file = st.file_uploader("Upload Knowledge (PDF)", type=["pdf"])
+        voice = st.audio_input("Voice Ingest")
 
-                # CRAZY PROMPT
-                prompt = f"""
-                Analyze: {text[:4000]}
-                Return JSON: {{
-                    "cards": [{"q":"","a":""}],
-                    "quiz": [{"q":"","o":["","","",""],"a":""}]
-                }}
-                """
-                data = safe_ai_request(prompt, is_json=True)
-                st.session_state.flashcards = data.get('cards', [])
-                st.session_state.quiz_data = data.get('quiz', [])
-                st.rerun()
+        if st.button("EXECUTE SYNC"):
+            content = ""
+            if file:
+                pdf = PyPDF2.PdfReader(file)
+                content = "".join([p.extract_text() for p in pdf.pages])
+            elif voice:
+                client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+                trans = client.audio.transcriptions.create(model="whisper-1", file=voice)
+                content = trans.text
+
+            if content:
+                with st.spinner("Synthesizing..."):
+                    st.session_state.data = neural_engine(content)
+                    st.session_state.xp += 20
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
-        tab1, tab2 = st.tabs(["Neural Flashcards", "Exam Simulation"])
-        with tab1:
-            for c in st.session_state.flashcards:
-                with st.expander(f"Concept: {c['q']}"): st.write(c['a'])
-        with tab2:
-            score = 0
-            for idx, q in enumerate(st.session_state.quiz_data):
-                st.markdown(f"**{idx + 1}. {q['q']}**")
-                choice = st.radio("Options:", q['o'], key=f"q_{idx}")
-                if choice == q['a']: score += 1
-            if st.session_state.quiz_data:
-                st.metric("Exam Performance", f"{(score / len(st.session_state.quiz_data)) * 100:.1f}%")
+        if st.session_state.data:
+            t1, t2, t3 = st.tabs(["🧠 MIND MAP", "🗂️ CARDS", "🛡️ EXAM"])
+            with t1:
+                st.markdown(f"```mermaid\n{st.session_state.data['mindmap']}\n```")
+            with t2:
+                for c in st.session_state.data['cards']:
+                    with st.expander(c.get('q', 'Question')): st.write(c.get('a', 'Answer'))
+            with t3:
+                score = 0
+                for i, q in enumerate(st.session_state.data['quiz']):
+                    st.write(f"**{i + 1}. {q.get('q')}**")
+                    ans = st.radio("Response:", q.get('o', []), key=f"q_{i}")
+                    if ans == q.get('a'): score += 1
+                if st.button("Finalize Exam"):
+                    st.balloons()
+                    st.session_state.xp += 30
 
 
 def render_vision():
-    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
-    st.markdown("<div class='bento-node'><h3>Vision Studio</h3>", unsafe_allow_html=True)
-    p = st.text_input("Latent Space Prompt...")
-    if st.button("MANIFEST IMAGE"):
-        with st.spinner("Synthesizing..."):
-            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            res = client.images.generate(model="dall-e-3", prompt=p)
-            st.image(res.data[0].url)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.title("Vision Studio")
+    prompt = st.text_input("Manifest reality...")
+    if st.button("GENERATE"):
+        client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        img = client.images.generate(model="dall-e-3", prompt=prompt)
+        st.image(img.data[0].url)
+
+
+def render_math():
+    st.title("Math Terminal")
+    p = st.chat_input("Enter equation...")
+    if p:
+        client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        res = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": p}])
+        st.write(res.choices[0].message.content)
 
 
 # --- 6. ROUTER ---
-router = {
-    "Home": render_home,
-    "Math Terminal": render_math,
-    "Study Lab": render_study_lab,
-    "Vision Studio": render_vision
-}
-router.get(st.session_state.active_page, render_home)()
+if st.session_state.xp >= 100:
+    st.session_state.lvl += 1
+    st.session_state.xp = 0
+
+routes = {"HOME": render_home, "LAB": render_lab, "VISION": render_vision, "MATH": render_math}
+routes[st.session_state.active_page]()
