@@ -1,6 +1,7 @@
 import streamlit as st
 import openai
 import base64
+import json
 from PIL import Image
 import io
 
@@ -12,7 +13,6 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Space+Grotesk:wght@300;500;700&display=swap');
 
-    /* DARK MODE 2.0 */
     html, body, [data-testid="stAppViewContainer"] {
         background-color: #000000 !important;
         background-image: 
@@ -22,7 +22,6 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
-    /* NEON GLASS NAV */
     [data-testid="stHeader"] { display: none; }
     .nav-bar {
         position: fixed;
@@ -38,27 +37,19 @@ st.markdown("""
         z-index: 9999;
     }
 
-    /* FLASHCARD UI */
     .flashcard {
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 24px;
-        padding: 40px;
+        padding: 30px;
         text-align: center;
-        min-height: 250px;
+        min-height: 200px;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        transition: 0.4s;
-        cursor: pointer;
         margin-bottom: 20px;
     }
-    .flashcard:hover {
-        border-color: #00f2ff;
-        box-shadow: 0 0 30px rgba(0, 242, 255, 0.1);
-    }
 
-    /* BENTO CARDS */
     .bento {
         background: rgba(255,255,255,0.02);
         border: 1px solid rgba(255,255,255,0.08);
@@ -67,7 +58,6 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* BUTTONS */
     .stButton>button {
         background: #ffffff !important;
         color: #000 !important;
@@ -75,11 +65,6 @@ st.markdown("""
         font-weight: 700 !important;
         padding: 10px 25px !important;
         border: none !important;
-        transition: 0.3s !important;
-    }
-    .stButton>button:hover {
-        transform: scale(1.05);
-        background: #00f2ff !important;
     }
 
     [data-testid="stSidebar"] { display: none; }
@@ -89,7 +74,7 @@ st.markdown("""
 # --- 3. STATE ENGINE ---
 if 'active_page' not in st.session_state: st.session_state.active_page = 'Home'
 if 'math_history' not in st.session_state: st.session_state.math_history = []
-if 'notes_processed' not in st.session_state: st.session_state.notes_processed = False
+if 'flashcards' not in st.session_state: st.session_state.flashcards = []
 
 # Top Nav
 st.markdown('<div class="nav-bar">', unsafe_allow_html=True)
@@ -106,7 +91,6 @@ with c5:
 st.markdown('</div>', unsafe_allow_html=True)
 
 
-# Helper: Convert Image to Base64
 def encode_image(image_file):
     return base64.b64encode(image_file.getvalue()).decode('utf-8')
 
@@ -118,34 +102,20 @@ def render_home():
     st.markdown("<h1 style='font-size:80px; font-family:Space Grotesk; text-align:center;'>THE END OF<br>AVERAGE.</h1>",
                 unsafe_allow_html=True)
     st.markdown(
-        "<p style='text-align:center; color:#888; font-size:20px;'>The first AI operating system designed to destroy academic barriers.</p>",
+        "<p style='text-align:center; color:#888; font-size:20px;'>The first AI operating system for academic mastery.</p>",
         unsafe_allow_html=True)
-
-    st.markdown("<br><br>", unsafe_allow_html=True)
-
-    col_l, col_r = st.columns([1, 1])
-    with col_l:
-        st.markdown(
-            "<div class='bento'><h2>📸 Scan & Solve</h2><p style='color:#ccc;'>Upload a photo of your math textbook or handwritten notes. Our neural engine deconstructs the logic and provides a step-by-step walkthrough instantly.</p></div>",
-            unsafe_allow_html=True)
-        st.image("https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800")
-    with col_r:
-        st.markdown(
-            "<div class='bento'><h2>📝 Note-to-Test</h2><p style='color:#ccc;'>Drop your lecture slides or notes. CogniAI generates custom flashcards and full-length practice exams based 100% on your specific material.</p></div>",
-            unsafe_allow_html=True)
-        st.image("https://images.unsplash.com/photo-1454165833767-027eeef1593e?w=800")
 
 
 def render_math():
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:center;'>Math Terminal</h1>", unsafe_allow_html=True)
 
-    uploaded_file = st.file_uploader("Upload Math Image (JPG/PNG)", type=["jpg", "jpeg", "png"])
-    if uploaded_file:
-        st.image(uploaded_file, caption="Analyzing Problem...", width=300)
+    uploaded_file = st.file_uploader("Upload Math Image", type=["jpg", "jpeg", "png"])
 
+    # Display History with LaTeX support
     for m in st.session_state.math_history:
-        with st.chat_message(m["role"]): st.markdown(m["content"])
+        with st.chat_message(m["role"]):
+            st.markdown(m["content"])
 
     if p := st.chat_input("Ask or upload a problem..."):
         st.session_state.math_history.append({"role": "user", "content": p})
@@ -155,15 +125,18 @@ def render_math():
         with st.chat_message("assistant"):
             try:
                 client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-                messages = [{"role": "system",
-                             "content": "You are Math Prime. Solve step-by-step. Use plain text formatting, avoid complex LaTeX."}]
+                # Updated System Prompt to ensure proper LaTeX formatting
+                messages = [{
+                    "role": "system",
+                    "content": "You are Math Prime. Solve step-by-step. Use LaTeX for ALL math equations (e.g., use $...$ for inline and $$...$$ for blocks). Ensure fractions use \\frac{a}{b}."
+                }]
 
                 if uploaded_file:
                     base64_img = encode_image(uploaded_file)
                     messages.append({
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": p if p else "Solve this problem."},
+                            {"type": "text", "text": p if p else "Solve the problem in this image."},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
                         ]
                     })
@@ -171,79 +144,60 @@ def render_math():
                     messages.append({"role": "user", "content": p})
 
                 stream = client.chat.completions.create(model="gpt-4o", messages=messages, stream=True)
+                # write_stream automatically handles Markdown + LaTeX
                 resp = st.write_stream(stream)
                 st.session_state.math_history.append({"role": "assistant", "content": resp})
             except Exception as e:
-                st.error("API Key not found or invalid. Please check your secrets.")
+                st.error("Please add your OPENAI_API_KEY to .streamlit/secrets.toml")
 
 
 def render_study_lab():
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:center;'>Study Lab</h1>", unsafe_allow_html=True)
 
-    st.markdown(
-        "<div style='text-align:center; color:#888;'>Upload your notes to generate practice materials.</div><br>",
-        unsafe_allow_html=True)
+    notes = st.file_uploader("Upload Notes (PDF/TXT)", type=["pdf", "txt"])
 
-    notes = st.file_uploader("Drop notes or images here", type=["pdf", "png", "jpg", "txt"])
+    if notes and st.button("✨ Generate AI Flashcards", use_container_width=True):
+        with st.spinner("Processing..."):
+            try:
+                content = ""
+                if notes.type == "text/plain":
+                    content = notes.read().decode()
+                else:
+                    import PyPDF2
+                    pdf = PyPDF2.PdfReader(notes)
+                    for page in pdf.pages: content += page.extract_text()
 
-    if notes:
-        if st.button("✨ Generate Study Materials", use_container_width=True):
-            st.session_state.notes_processed = True
+                client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+                response = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "system",
+                               "content": "Create 4 flashcards from these notes. Return ONLY a JSON list: [{'q': 'question', 'a': 'answer'}]. Use LaTeX for math."},
+                              {"role": "user", "content": content[:4000]}]
+                )
+                st.session_state.flashcards = json.loads(response.choices[0].message.content)
+            except:
+                st.error("Make sure PyPDF2 is installed and API Key is valid.")
 
-    tab1, tab2 = st.tabs(["🗂️ Flashcards", "📝 Practice Test"])
-
-    with tab1:
-        if notes and st.session_state.notes_processed:
-            st.success("Notes Processed.")
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown(
-                    "<div class='flashcard'><h3>What is photosynthesis?</h3><p style='color:#555;'>(Click to flip)</p></div>",
-                    unsafe_allow_html=True)
-            with c2:
-                st.markdown(
-                    "<div class='flashcard'><h3>Define Mitochondria</h3><p style='color:#555;'>(Click to flip)</p></div>",
-                    unsafe_allow_html=True)
-        else:
-            st.info("Upload notes and click 'Generate' to see flashcards.")
-
-    with tab2:
-        if notes and st.session_state.notes_processed:
-            st.markdown("### Generated Exam: Chapter 1")
-            st.markdown("1. Explain the process of cellular respiration.")
-            st.text_area("Your Answer", placeholder="Type your response here...")
-            st.button("Grade My Exam")
-        else:
-            st.info("Upload notes to generate a custom test.")
+    if st.session_state.flashcards:
+        cols = st.columns(2)
+        for i, card in enumerate(st.session_state.flashcards):
+            with cols[i % 2]:
+                with st.expander(f"Topic {i + 1}: {card['q']}"):
+                    st.write(card['a'])
 
 
 def render_vision():
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:center;'>Vision Studio</h1>", unsafe_allow_html=True)
-
-    with st.container():
-        st.markdown("<div class='bento'>", unsafe_allow_html=True)
-        with st.form("vision_engine"):
-            prompt = st.text_input("Describe your vision...", placeholder="A futuristic laboratory in space...")
-            style = st.selectbox("Style", ["Photorealistic", "Cinematic", "Digital Art", "Cyberpunk"])
-            submit = st.form_submit_button("Generate Masterpiece")
-
-            if submit:
-                if prompt:
-                    st.info(f"Generating {style} image: {prompt}...")
-                    # DALL-E 3 Logic would go here
-                else:
-                    st.warning("Please provide a prompt.")
-        st.markdown("</div>", unsafe_allow_html=True)
+    with st.form("v_form"):
+        prompt = st.text_input("Creative Prompt")
+        if st.form_submit_button("Generate") and prompt:
+            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+            res = client.images.generate(model="dall-e-3", prompt=prompt)
+            st.image(res.data[0].url)
 
 
 # --- 5. ROUTER ---
-if st.session_state.active_page == 'Home':
-    render_home()
-elif st.session_state.active_page == 'Math':
-    render_math()
-elif st.session_state.active_page == 'Study':
-    render_study_lab()
-elif st.session_state.active_page == 'Vision':
-    render_vision()
+pages = {"Home": render_home, "Math": render_math, "Study": render_study_lab, "Vision": render_vision}
+pages[st.session_state.active_page]()
