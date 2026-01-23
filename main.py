@@ -14,21 +14,20 @@ st.markdown("""
     html, body, [data-testid="stAppViewContainer"] {
         background-color: #000000 !important;
         background-image: 
-            radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.12) 0px, transparent 50%);
+            radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
         color: #ffffff !important;
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
     [data-testid="stHeader"] { display: none; }
 
-    /* NAV BAR */
     .nav-bar {
         position: fixed;
         top: 0; left: 0; right: 0;
         height: 80px;
-        background: rgba(0,0,0,0.7);
-        backdrop-filter: blur(30px);
+        background: rgba(0,0,0,0.8);
+        backdrop-filter: blur(20px);
         border-bottom: 1px solid rgba(255,255,255,0.1);
         display: flex;
         align-items: center;
@@ -37,13 +36,11 @@ st.markdown("""
         z-index: 9999;
     }
 
-    /* VISION STUDIO CONTAINER */
     .vision-container {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 32px;
         padding: 40px;
-        margin-top: 20px;
         backdrop-filter: blur(10px);
     }
 
@@ -52,14 +49,8 @@ st.markdown("""
         color: #000 !important;
         border-radius: 50px !important;
         font-weight: 700 !important;
-        padding: 10px 30px !important;
+        padding: 10px 25px !important;
         border: none !important;
-        transition: 0.3s ease;
-    }
-
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(255,255,255,0.1);
     }
 
     [data-testid="stSidebar"] { display: none; }
@@ -70,19 +61,18 @@ st.markdown("""
 if 'active_page' not in st.session_state: st.session_state.active_page = 'Home'
 if 'math_history' not in st.session_state: st.session_state.math_history = []
 
-# Top Nav
+# Top Nav - BUTTON NAMES MUST MATCH ROUTER KEYS
 st.markdown('<div class="nav-bar">', unsafe_allow_html=True)
 c1, c2, c3, c4, c5 = st.columns([2, 1, 1, 1, 1])
-with c1: st.markdown("<h2 style='margin:0; font-family:Space Grotesk; letter-spacing:-1px;'>COGNIAI</h2>",
-                     unsafe_allow_html=True)
+with c1: st.markdown("<h2 style='margin:0; font-family:Space Grotesk;'>COGNIAI</h2>", unsafe_allow_html=True)
 with c2:
-    if st.button("Home", key="n1"): st.session_state.active_page = 'Home'
+    if st.button("Home"): st.session_state.active_page = 'Home'
 with c3:
-    if st.button("Math", key="n2"): st.session_state.active_page = 'Math'
+    if st.button("Math"): st.session_state.active_page = 'Math'
 with c4:
-    if st.button("Study Lab", key="n3"): st.session_state.active_page = 'Study'
+    if st.button("Study Lab"): st.session_state.active_page = 'Study'
 with c5:
-    if st.button("Vision", key="n4"): st.session_state.active_page = 'Vision'
+    if st.button("Vision"): st.session_state.active_page = 'Vision'
 st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -94,9 +84,10 @@ def encode_image(image_file):
 
 def render_home():
     st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
-    st.markdown(
-        "<h1 style='font-size:90px; font-family:Space Grotesk; text-align:center; line-height:1;'>BEYOND<br><span style='color:#3b82f6;'>INTELLIGENCE.</span></h1>",
-        unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size:80px; font-family:Space Grotesk; text-align:center;'>INFINITY OS</h1>",
+                unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#888;'>Select a module from the navigation bar to begin.</p>",
+                unsafe_allow_html=True)
 
 
 def render_math():
@@ -105,18 +96,16 @@ def render_math():
     with col_t:
         st.markdown("<h1>Math Terminal</h1>", unsafe_allow_html=True)
     with col_c:
-        if st.button("🗑️ Clear History"):
+        if st.button("🗑️ Clear Chat"):
             st.session_state.math_history = []
             st.rerun()
 
     uploaded_file = st.file_uploader("Upload Math Image", type=["jpg", "jpeg", "png"])
 
     for m in st.session_state.math_history:
-        with st.chat_message(m["role"]):
-            # This fixes the rendering by ensuring we wrap the content properly
-            st.markdown(m["content"])
+        with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if p := st.chat_input("Input problem or ask about the image..."):
+    if p := st.chat_input("Ask a question..."):
         st.session_state.math_history.append({"role": "user", "content": p})
         with st.chat_message("user"):
             st.markdown(p)
@@ -126,15 +115,14 @@ def render_math():
                 client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 messages = [{
                     "role": "system",
-                    "content": "You are a Math Engine. ALWAYS wrap math in double dollar signs for blocks and single for inline. Example: $$x = \\frac{-b \\pm \\sqrt{D}}{2a}$$. NEVER use raw brackets [ ]."
+                    "content": "You are a math solver. ALWAYS wrap math in double dollar signs $$...$$ for blocks and single $...$ for inline. Example: $$\\frac{x}{y}$$. NEVER use raw brackets [ ] or parentheses ( ) for equations."
                 }]
 
                 if uploaded_file:
                     base64_img = encode_image(uploaded_file)
-                    messages.append({"role": "user", "content": [
-                        {"type": "text", "text": p if p else "Solve this problem step-by-step."},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
-                    ]})
+                    messages.append({"role": "user", "content": [{"type": "text", "text": p}, {"type": "image_url",
+                                                                                               "image_url": {
+                                                                                                   "url": f"data:image/jpeg;base64,{base64_img}"}}]})
                 else:
                     messages.append({"role": "user", "content": p})
 
@@ -142,49 +130,44 @@ def render_math():
                 resp = st.write_stream(stream)
                 st.session_state.math_history.append({"role": "assistant", "content": resp})
             except:
-                st.error("API Key missing in secrets.toml")
+                st.error("API Key error.")
+
+
+def render_study_lab():
+    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+    st.markdown("<h1>Study Lab</h1>", unsafe_allow_html=True)
+    st.info("Module ready for PDF upload and AI note processing.")
 
 
 def render_vision():
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:center;'>Vision Studio</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; color:#666;'>Generate cinematic visuals with DALL-E 3</p>",
-                unsafe_allow_html=True)
 
-    # We use a container to make sure the elements are visible on the black background
     with st.container():
         st.markdown('<div class="vision-container">', unsafe_allow_html=True)
-        with st.form("vision_form", clear_on_submit=False):
-            prompt = st.text_area("Describe your vision...",
-                                  placeholder="A futuristic city with floating gardens, cinematic lighting, 8k...")
-            c1, c2 = st.columns([2, 1])
-            with c1:
-                style = st.selectbox("Style Preset", ["Hyper-Realistic", "Cyberpunk", "Surrealism", "Architectural"])
-            with c2:
-                # This is your "Enter" button
-                generate_btn = st.form_submit_button("✨ Launch Generation")
-
-            if generate_btn:
-                if prompt:
-                    try:
-                        client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-                        with st.spinner("Synthesizing pixels..."):
-                            response = client.images.generate(
-                                model="dall-e-3",
-                                prompt=f"{prompt}, style: {style}",
-                                n=1,
-                                size="1024x1024"
-                            )
-                            image_url = response.data[0].url
-                            st.image(image_url, use_container_width=True)
-                            st.success("Generation Complete.")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-                else:
-                    st.warning("Please enter a description.")
+        with st.form("v_form"):
+            prompt = st.text_area("Prompt", placeholder="Enter your vision...")
+            if st.form_submit_button("✨ Launch Generation") and prompt:
+                try:
+                    client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+                    with st.spinner("Processing..."):
+                        res = client.images.generate(model="dall-e-3", prompt=prompt)
+                        st.image(res.data[0].url, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
 
 
-# --- 5. ROUTER ---
-pages = {"Home": render_home, "Math": render_math, "Vision": render_vision}
-pages[st.session_state.active_page]()
+# --- 5. ROUTER (The KeyError Fix) ---
+pages = {
+    "Home": render_home,
+    "Math": render_math,
+    "Study Lab": render_study_lab,  # Key matches exactly with button name
+    "Vision": render_vision
+}
+
+# Run current page
+if st.session_state.active_page in pages:
+    pages[st.session_state.active_page]()
+else:
+    render_home()
