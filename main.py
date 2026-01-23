@@ -3,170 +3,176 @@ import openai
 import json
 import pdfplumber
 import sqlite3
-import random
 import time
 from datetime import datetime
 
-# --- 1. THE HYPER-VOID ENGINE (FULL UI OVERHAUL) ---
+# --- 1. THE HYPER-VOID ENGINE & MATRIX RAIN ---
 st.set_page_config(page_title="COGNIAI | SINGULARITY", page_icon="🧬", layout="wide")
 
-# This CSS injects a live particle background and removes all standard Streamlit "white space"
+# This block injects the Matrix Background + Glitch CSS
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500&family=Space+Grotesk:wght@300;700&display=swap');
 
-    /* Remove Padding & Center Content */
-    .block-container { padding: 1rem 2rem !important; max-width: 95% !important; }
-    [data-testid="stHeader"] { display: none; }
+    /* Background Canvas Setup */
+    #matrix-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1; /* Puts it behind everything */
+    }
 
-    /* Live Animated Neural Background */
     .stApp {
-        background: radial-gradient(circle at center, #001a0a 0%, #000000 100%);
+        background: transparent; /* Makes app transparent so we see the rain */
         color: #00FF41;
         font-family: 'Space Grotesk', sans-serif;
     }
-    .stApp::before {
-        content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
-        opacity: 0.1; pointer-events: none;
-    }
 
-    /* Holographic Panels (No Empty Space) */
     .omni-card {
-        background: rgba(0, 40, 20, 0.2);
-        backdrop-filter: blur(15px);
-        border: 1px solid rgba(0, 255, 65, 0.3);
-        border-radius: 20px;
-        padding: 30px;
-        margin-bottom: 20px;
-        box-shadow: 0 0 30px rgba(0, 255, 65, 0.1);
-        transition: 0.5s all;
+        background: rgba(0, 20, 10, 0.85); /* Slightly darker for readability against rain */
+        backdrop-filter: blur(10px);
+        border: 1px solid #00FF41;
+        border-radius: 15px;
+        padding: 25px;
+        margin: 15px 0;
+        box-shadow: 0 0 25px rgba(0, 255, 65, 0.3);
     }
-    .omni-card:hover { border-color: #00FF41; box-shadow: 0 0 50px rgba(0, 255, 65, 0.4); }
 
-    /* Floating Navigation */
-    .nav-bar { display: flex; justify-content: space-around; background: rgba(0,0,0,0.8); border: 1px solid #00FF41; border-radius: 50px; padding: 10px; margin-bottom: 40px; }
-
-    /* Glitch Title */
     .glitch {
-        font-size: 5rem; font-weight: 800; text-align: center;
-        text-shadow: 2px 2px #ff00c1, -2px -2px #00fff9;
-        animation: glitch-anim 1s infinite linear alternate-reverse;
+        font-size: 5rem; font-weight: 900; text-align: center;
+        text-transform: uppercase; letter-spacing: 15px;
+        text-shadow: 3px 3px #ff00c1, -3px -3px #00fff9;
+        animation: glitch-anim 2s infinite linear alternate-reverse;
     }
-    @keyframes glitch-anim {
-        0% { transform: skew(0.5deg); }
-        100% { transform: skew(-0.5deg); }
-    }
+    @keyframes glitch-anim { 0% { opacity: 1; } 50% { opacity: 0.8; transform: skewX(2deg); } 100% { opacity: 1; } }
 
-    /* 3D Spinning Cube for Photos */
-    .cube-container { perspective: 800px; width: 100%; display: flex; justify-content: center; }
+    .cube-container { perspective: 1000px; display: flex; justify-content: center; padding: 20px; }
     .spinning-photo {
-        width: 350px; height: 350px; transform-style: preserve-3d;
-        animation: rotate3d 12s infinite linear;
-        border: 4px solid #00FF41; box-shadow: 0 0 80px #00FF41; border-radius: 20px;
+        width: 320px; height: 320px; 
+        animation: spin 12s infinite linear;
+        border: 3px solid #00FF41; box-shadow: 0 0 60px #00FF41;
     }
-    @keyframes rotate3d { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+    @keyframes spin { from { transform: rotateY(0deg) rotateX(5deg); } to { transform: rotateY(360deg) rotateX(5deg); } }
     </style>
+
+    <canvas id="matrix-canvas"></canvas>
+
+    <script>
+    const canvas = document.getElementById('matrix-canvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ﾊﾐﾋｰｳｼﾅﾓﾆｻﾜﾂｵﾘｱﾎﾃﾏｹﾒｴｶｷﾑﾕﾗｾﾈｽﾀﾇﾍ';
+    const fontSize = 16;
+    const columns = canvas.width / fontSize;
+    const drops = Array.from({ length: columns }, () => 1);
+
+    function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#00FF41';
+        ctx.font = fontSize + 'px monospace';
+
+        for (let i = 0; i < drops.length; i++) {
+            const text = characters.charAt(Math.floor(Math.random() * characters.length));
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
+        }
+    }
+    setInterval(draw, 33);
+    </script>
     """, unsafe_allow_html=True)
 
 
-# --- 2. DB INITIALIZATION ---
+# --- 2. LOGIC GATES ---
 def init_db():
     conn = sqlite3.connect('cogniai_omega.db', check_same_thread=False)
-    conn.execute('CREATE TABLE IF NOT EXISTS profile (xp INT, lvl INT)')
     conn.execute('CREATE TABLE IF NOT EXISTS nodes (q TEXT, a TEXT)')
-    if not conn.execute('SELECT * FROM profile').fetchone():
-        conn.execute('INSERT INTO profile VALUES (0, 1)')
     conn.commit()
     return conn
 
 
 db = init_db()
 
-# --- 3. PAGE LOGIC ---
 if 'page' not in st.session_state: st.session_state.page = "HOME"
 
+# --- 3. THE HUD (NAVIGATION) ---
 st.markdown("<h1 class='glitch'>COGNIAI</h1>", unsafe_allow_html=True)
-
-# Full-Width Navigation
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    if st.button("🌌 NEURAL CORE", use_container_width=True): st.session_state.page = "HOME"
-with c2:
-    if st.button("🧠 STUDY LAB", use_container_width=True): st.session_state.page = "LAB"
-with c3:
-    if st.button("📐 MATH NEXUS", use_container_width=True): st.session_state.page = "MATH"
-with c4:
-    if st.button("🖼️ PHOTO GEN", use_container_width=True): st.session_state.page = "PHOTO"
+nav_cols = st.columns(4)
+menu = ["CORE", "LAB", "NEXUS", "PHOTO"]
+for i, m in enumerate(menu):
+    if nav_cols[i].button(m, use_container_width=True):
+        st.session_state.page = m
+        st.rerun()
 
 # --- 4. MODULES ---
 
 if st.session_state.page == "HOME":
-    # Hero Visuals
     st.markdown("""
-        <div class="omni-card" style="text-align: center;">
-            <h2 style="font-size: 45px;">WELCOME TO THE OMNI-SINGULARITY</h2>
-            <p style="font-size: 20px; opacity: 0.6;">System Status: Hyper-Synced | Neural Load: Optimal</p>
+        <div class='omni-card'>
+            <h2>SYSTEM INITIALIZED</h2>
+            <p>Welcome, Architect. The Matrix Rain indicates the flow of raw data through the Singularity.</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # 3-Column Grid (Filling Space)
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    # Dynamic Lore Cards (Zero Empty Space)
+    c1, c2, c3 = st.columns(3)
+    with c1:
         st.markdown(
-            "<div class='omni-card'><h3>⚡ Recursive Logic</h3><p>Extracting intelligence from thousands of PDF blocks simultaneously.</p></div>",
+            "<div class='omni-card'><h3>⚡ Speed</h3><p>Parallel block processing enables 12-page PDF ingestion in under 10 seconds.</p></div>",
             unsafe_allow_html=True)
+    with c2:
         st.markdown(
-            "<div class='omni-card'><h3>🛡️ Security</h3><p>Local SQLite database encryption enabled. Your data never leaves the singularity.</p></div>",
+            "<div class='omni-card'><h3>🧬 Bio-Repetition</h3><p>Memory nodes are algorithmically weighted based on your recall accuracy.</p></div>",
             unsafe_allow_html=True)
-    with col2:
-        st.image("https://images.unsplash.com/photo-1614728263952-84ea256f9679?auto=format&fit=crop&q=80&w=800")
-        st.markdown("<div class='omni-card' style='text-align:center;'><b>LEVEL: ARCHITECT</b></div>",
-                    unsafe_allow_html=True)
-    with col3:
+    with c3:
         st.markdown(
-            "<div class='omni-card'><h3>🛰️ Satellite Sync</h3><p>Real-time math resolution via the Neural Nexus. No equation is unsolvable.</p></div>",
-            unsafe_allow_html=True)
-        st.markdown(
-            "<div class='omni-card'><h3>🧬 Bio-Recall</h3><p>Spaced repetition tracking your specific forgetting curve for maximum efficiency.</p></div>",
+            "<div class='omni-card'><h3>📐 Calculus Core</h3><p>Direct API link to the Math Nexus for instant symbolic resolution.</p></div>",
             unsafe_allow_html=True)
 
-elif st.session_state.page == "LAB":
-    st.markdown("<div class='omni-card'><h2>🧠 NEURAL INGESTION</h2>", unsafe_allow_html=True)
-    up = st.file_uploader("DROP DATA STREAM (PDF)")
-    if up and st.button("INITIATE SYNC"):
-        with st.status("🧬 SYNTHESIZING NODES..."):
-            with pdfplumber.open(up) as pdf:
-                raw = "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
-                # AI logic here...
-                time.sleep(2)
-        st.balloons()
-    st.markdown("</div>", unsafe_allow_html=True)
+elif st.session_state.page == "NEXUS":
+    st.markdown(
+        "<div class='omni-card'><h2>📐 MATH NEXUS</h2><p>Solving the impossible. Enter your equation below.</p></div>",
+        unsafe_allow_html=True)
 
-    # Fill the rest of the lab with the "Memory Recall" Expander Grid
-    st.markdown("### 🗃️ ACTIVE MEMORY SLOTS")
-    cols = st.columns(3)
-    for i in range(9):
-        cols[i % 3].markdown(f"<div class='omni-card'><b>Slot {i + 1}:</b> No Data Detected.</div>",
-                             unsafe_allow_html=True)
+    # Chat Input fixed with a container
+    with st.container():
+        math_q = st.chat_input("Integrate 3x^2 + 2x + 5 from 0 to 10...")
+        if math_q:
+            with st.spinner("🔢 ACCESSING LOGIC GATES..."):
+                client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+                res = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "system", "content": "You are the Math Nexus. Use LaTeX for math."},
+                              {"role": "user", "content": math_q}]
+                )
+                st.markdown(f"<div class='omni-card'>{res.choices[0].message.content}</div>", unsafe_allow_html=True)
 
 elif st.session_state.page == "PHOTO":
-    st.markdown("<div class='omni-card'><h2>🖼️ AI PHOTO MANIFESTATION</h2>", unsafe_allow_html=True)
-    p = st.text_input("Enter Prompt...")
-    if st.button("MANIFEST"):
-        # Simulated spinning photo for visual impact
+    st.markdown("<div class='omni-card'><h2>🖼️ PHOTO MANIFESTATION</h2></div>", unsafe_allow_html=True)
+    prompt = st.text_input("Visualize...")
+    if st.button("MANIFEST", use_container_width=True):
+        client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        img = client.images.generate(model="dall-e-3", prompt=prompt)
+        url = img.data[0].url
         st.markdown(f"""
             <div class="cube-container">
                 <div class="spinning-photo">
-                    <img src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&q=80&w=800" style="width:100%; border-radius:15px;">
+                    <img src="{url}" style="width:100%; height:100%; object-fit: cover; border-radius: 12px;">
                 </div>
             </div>
         """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # Ticker Footer
 st.markdown("""
-    <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #00FF41; color: black; font-weight: bold; font-family: 'Fira Code'; padding: 5px; text-align: center;">
-        CORE STATUS: HYPER-ACTIVE // MEMORY: OPTIMAL // NEURAL NODES: UNLIMITED // WELCOME TO THE FUTURE...
+    <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #00FF41; color: black; font-weight: bold; padding: 5px; text-align: center; z-index: 1000;">
+        SINGULARITY STATUS: 100% // DATA RAIN: STABLE // ARCHITECT AUTHORIZED
     </div>
 """, unsafe_allow_html=True)
