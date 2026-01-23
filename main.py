@@ -5,8 +5,8 @@ import re
 import PyPDF2
 import sqlite3
 
-# --- 1. OMNI-HUD UI (EMERALD & TITANIUM) ---
-st.set_page_config(page_title="INFINITY OS | OMNI", page_icon="♾️", layout="wide")
+# --- 1. COGNIAI HUD UI (EMERALD VOID) ---
+st.set_page_config(page_title="CogniAI | Infinity OS", page_icon="♾️", layout="wide")
 
 st.markdown("""
     <style>
@@ -15,37 +15,45 @@ st.markdown("""
     .stApp {
         background: #020202 !important;
         background-image: 
-            radial-gradient(at 0% 0%, rgba(0, 255, 136, 0.1) 0px, transparent 50%),
+            radial-gradient(at 50% 0%, rgba(0, 255, 136, 0.15) 0px, transparent 50%),
             radial-gradient(at 100% 100%, rgba(112, 0, 255, 0.05) 0px, transparent 50%) !important;
         color: #e0e0e0 !important;
         font-family: 'Space Grotesk', sans-serif;
     }
 
-    /* FULL SCREEN GLASS PANELS */
     .omni-panel {
         background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(0, 255, 136, 0.15);
-        border-radius: 20px;
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        border-radius: 15px;
         padding: 30px;
         margin-bottom: 20px;
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(15px);
     }
 
-    /* SLIDER STYLING */
-    .stSlider [data-baseweb="slider"] { margin-bottom: 20px; }
+    .stButton>button {
+        background: transparent !important;
+        color: #00ff88 !important;
+        border: 2px solid #00ff88 !important;
+        border-radius: 12px !important;
+        font-family: 'Fira Code', monospace !important;
+        font-weight: 700 !important;
+        transition: 0.3s all;
+    }
+    .stButton>button:hover {
+        background: #00ff88 !important;
+        color: black !important;
+        box-shadow: 0 0 30px #00ff88;
+    }
 
     .fira { font-family: 'Fira Code', monospace; color: #00ff88; }
-
-    /* REMOVE PADDING */
-    .block-container { padding-top: 2rem !important; }
     [data-testid="stHeader"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
 
-# --- 2. CORE ENGINES ---
+# --- 2. ARCHIVE ENGINE ---
 def get_db():
-    conn = sqlite3.connect('omni_archive.db', check_same_thread=False)
+    conn = sqlite3.connect('cogniai_archive.db', check_same_thread=False)
     conn.execute('CREATE TABLE IF NOT EXISTS stats (id INT PRIMARY KEY, xp INT, lvl INT)')
     if not conn.execute('SELECT * FROM stats WHERE id=1').fetchone():
         conn.execute('INSERT INTO stats VALUES (1, 0, 1)')
@@ -54,13 +62,11 @@ def get_db():
 
 
 def neural_process(text, creativity, speed_mode):
-    # Map speed to model
     model = "gpt-4o-mini" if speed_mode == "Velocity (Fast)" else "gpt-4o"
     client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
     res = client.chat.completions.create(
         model=model,
-        temperature=creativity,  # Creativity Level
+        temperature=creativity,
         response_format={"type": "json_object"},
         messages=[{"role": "system",
                    "content": "Return JSON: {'mindmap': 'Mermaid String', 'cards': [{'q':'','a':''}], 'quiz': [{'q':'','o':[],'a':''}], 'vision': ''}"},
@@ -77,12 +83,13 @@ st.session_state.xp, st.session_state.lvl = db.execute('SELECT xp, lvl FROM stat
 
 # --- 4. NAVIGATION ---
 st.markdown(
-    "<h1 style='text-align:center; color:#00ff88; letter-spacing:10px; margin-bottom:30px;'>INFINITY OS <span style='font-weight:100; opacity:0.5;'>| OMNI</span></h1>",
+    "<h1 style='text-align:center; color:#00ff88; letter-spacing:8px;'>COGNIAI <span style='font-weight:100; opacity:0.3;'>| INFINITY OS</span></h1>",
     unsafe_allow_html=True)
 nav = st.columns(4)
-for i, x in enumerate(["HOME", "NEURAL LAB", "VISION", "TERMINAL"]):
-    if nav[i].button(x, use_container_width=True):
-        st.session_state.page = x
+nav_items = ["HOME", "STUDY LAB", "VISION", "TERMINAL"]
+for i, item in enumerate(nav_items):
+    if nav[i].button(item, use_container_width=True):
+        st.session_state.page = item
         st.rerun()
 
 
@@ -92,33 +99,29 @@ def render_home():
     c1, c2 = st.columns([2, 1])
     with c1:
         st.markdown("<div class='omni-panel'>", unsafe_allow_html=True)
-        st.title(f"USER: LEVEL {st.session_state.lvl}")
+        st.title(f"SYNC LEVEL: {st.session_state.lvl}")
         st.progress(st.session_state.xp / 100)
-        st.write(f"Neural XP: {st.session_state.xp}/100")
+        st.write(f"Neural Progress: {st.session_state.xp}% towards Level {st.session_state.lvl + 1}")
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='omni-panel'><h3>Neural Soundscape</h3>", unsafe_allow_html=True)
-        # Deep Lofi Player to fill space
+        st.markdown("<div class='omni-panel'><h3>Focus Stream</h3>", unsafe_allow_html=True)
         st.video("https://www.youtube.com/watch?v=jfKfPfyJRdk")
         st.markdown("</div>", unsafe_allow_html=True)
-
     with c2:
         st.markdown(
-            "<div class='omni-panel'><h3>Engine Logs</h3><p class='fira'>- Persistence: OK<br>- Latent Space: Ready<br>- Neural Entropy: Calibrated</p></div>",
+            "<div class='omni-panel'><h3>Engine Status</h3><p class='fira'>- CogniAI: Online<br>- Memory: Persistence Active<br>- UI: Emerald Void</p></div>",
             unsafe_allow_html=True)
 
 
-def render_lab():
+def render_study_lab():
     l, r = st.columns([1, 2])
     with l:
-        st.markdown("<div class='omni-panel'><h3>Engine Config</h3>", unsafe_allow_html=True)
-        # NEW: CREATIVITY & SPEED SLIDERS
-        creativity = st.slider("Neural Entropy (Creativity)", 0.0, 1.0, 0.7)
-        speed = st.select_slider("Engine Velocity", options=["Deep Logic (High Precision)", "Velocity (Fast)"])
-
+        st.markdown("<div class='omni-panel'><h3>Configuration</h3>", unsafe_allow_html=True)
+        creativity = st.slider("Neural Entropy", 0.0, 1.0, 0.7)
+        speed = st.select_slider("Engine Velocity", options=["Deep Logic", "Velocity"])
         st.divider()
-        up = st.file_uploader("Upload Data", type=['pdf'])
-        if up and st.button("EXECUTE SYNC"):
+        up = st.file_uploader("Upload Study Material", type=['pdf'])
+        if up and st.button("SYNCHRONIZE"):
             reader = PyPDF2.PdfReader(up)
             txt = "".join([p.extract_text() for p in reader.pages])
             st.session_state.brain = neural_process(txt, creativity, speed)
@@ -132,7 +135,7 @@ def render_lab():
     with r:
         if st.session_state.brain:
             st.markdown("<div class='omni-panel'>", unsafe_allow_html=True)
-            t1, t2, t3 = st.tabs(["KNOWLEDGE MAP", "CRITICAL RECALL", "EXAM"])
+            t1, t2, t3 = st.tabs(["MIND MAP", "FLASHCARDS", "PRACTICE TEST"])
             with t1:
                 st.markdown(f"```mermaid\n{st.session_state.brain['mindmap']}\n```")
             with t2:
@@ -148,12 +151,12 @@ def render_lab():
 
 def render_vision():
     st.markdown("<div class='omni-panel'>", unsafe_allow_html=True)
-    with st.form("vis"):
-        prompt = st.text_input("Manifest latent concepts into visual form...",
-                               value=st.session_state.brain.get('vision', '') if st.session_state.brain else "")
-        if st.form_submit_button("MANIFEST"):
+    with st.form("vision_manifest"):
+        p = st.text_input("Manifest Vision",
+                          value=st.session_state.brain.get('vision', '') if st.session_state.brain else "")
+        if st.form_submit_button("GENERATE IMAGE"):
             client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            img = client.images.generate(model="dall-e-3", prompt=prompt)
+            img = client.images.generate(model="dall-e-3", prompt=p)
             st.image(img.data[0].url)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -169,5 +172,5 @@ def render_terminal():
 
 
 # --- ROUTER ---
-router = {"HOME": render_home, "NEURAL LAB": render_lab, "VISION": render_vision, "TERMINAL": render_terminal}
+router = {"HOME": render_home, "STUDY LAB": render_study_lab, "VISION": render_vision, "TERMINAL": render_terminal}
 router.get(st.session_state.page, render_home)()
