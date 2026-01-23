@@ -2,8 +2,6 @@ import streamlit as st
 import openai
 import base64
 import json
-from PIL import Image
-import io
 
 # --- 1. SYSTEM CORE ---
 st.set_page_config(page_title="CogniAI | Infinity OS", page_icon="♾️", layout="wide")
@@ -37,19 +35,6 @@ st.markdown("""
         z-index: 9999;
     }
 
-    .flashcard {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 24px;
-        padding: 30px;
-        text-align: center;
-        min-height: 200px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        margin-bottom: 20px;
-    }
-
     .bento {
         background: rgba(255,255,255,0.02);
         border: 1px solid rgba(255,255,255,0.08);
@@ -74,7 +59,6 @@ st.markdown("""
 # --- 3. STATE ENGINE ---
 if 'active_page' not in st.session_state: st.session_state.active_page = 'Home'
 if 'math_history' not in st.session_state: st.session_state.math_history = []
-if 'flashcards' not in st.session_state: st.session_state.flashcards = []
 
 # Top Nav
 st.markdown('<div class="nav-bar">', unsafe_allow_html=True)
@@ -101,9 +85,6 @@ def render_home():
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("<h1 style='font-size:80px; font-family:Space Grotesk; text-align:center;'>THE END OF<br>AVERAGE.</h1>",
                 unsafe_allow_html=True)
-    st.markdown(
-        "<p style='text-align:center; color:#888; font-size:20px;'>The first AI operating system for academic mastery.</p>",
-        unsafe_allow_html=True)
 
 
 def render_math():
@@ -111,8 +92,8 @@ def render_math():
     st.markdown("<h1 style='text-align:center;'>Math Terminal</h1>", unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader("Upload Math Image", type=["jpg", "jpeg", "png"])
+    if uploaded_file: st.image(uploaded_file, width=300)
 
-    # Display History with LaTeX support
     for m in st.session_state.math_history:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
@@ -125,10 +106,15 @@ def render_math():
         with st.chat_message("assistant"):
             try:
                 client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-                # Updated System Prompt to ensure proper LaTeX formatting
+
+                # STRICTOR SYSTEM PROMPT TO FORCE PROPER FORMATTING
                 messages = [{
                     "role": "system",
-                    "content": "You are Math Prime. Solve step-by-step. Use LaTeX for ALL math equations (e.g., use $...$ for inline and $$...$$ for blocks). Ensure fractions use \\frac{a}{b}."
+                    "content": """You are Math Prime. 
+                    NEVER use square brackets like [x+y] or parentheses like (20x) for equations. 
+                    ALWAYS use double dollar signs for centered equations: $$x + y = \\frac{200}{3}$$
+                    ALWAYS use single dollar signs for math inside sentences: $20x$.
+                    Format fractions as \\frac{a}{b}."""
                 }]
 
                 if uploaded_file:
@@ -136,7 +122,7 @@ def render_math():
                     messages.append({
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": p if p else "Solve the problem in this image."},
+                            {"type": "text", "text": p if p else "Solve this."},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
                         ]
                     })
@@ -144,58 +130,20 @@ def render_math():
                     messages.append({"role": "user", "content": p})
 
                 stream = client.chat.completions.create(model="gpt-4o", messages=messages, stream=True)
-                # write_stream automatically handles Markdown + LaTeX
                 resp = st.write_stream(stream)
                 st.session_state.math_history.append({"role": "assistant", "content": resp})
             except Exception as e:
-                st.error("Please add your OPENAI_API_KEY to .streamlit/secrets.toml")
+                st.error("API Key error. Please check your secrets.")
 
 
 def render_study_lab():
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:center;'>Study Lab</h1>", unsafe_allow_html=True)
 
-    notes = st.file_uploader("Upload Notes (PDF/TXT)", type=["pdf", "txt"])
-
-    if notes and st.button("✨ Generate AI Flashcards", use_container_width=True):
-        with st.spinner("Processing..."):
-            try:
-                content = ""
-                if notes.type == "text/plain":
-                    content = notes.read().decode()
-                else:
-                    import PyPDF2
-                    pdf = PyPDF2.PdfReader(notes)
-                    for page in pdf.pages: content += page.extract_text()
-
-                client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-                response = client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[{"role": "system",
-                               "content": "Create 4 flashcards from these notes. Return ONLY a JSON list: [{'q': 'question', 'a': 'answer'}]. Use LaTeX for math."},
-                              {"role": "user", "content": content[:4000]}]
-                )
-                st.session_state.flashcards = json.loads(response.choices[0].message.content)
-            except:
-                st.error("Make sure PyPDF2 is installed and API Key is valid.")
-
-    if st.session_state.flashcards:
-        cols = st.columns(2)
-        for i, card in enumerate(st.session_state.flashcards):
-            with cols[i % 2]:
-                with st.expander(f"Topic {i + 1}: {card['q']}"):
-                    st.write(card['a'])
-
 
 def render_vision():
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:center;'>Vision Studio</h1>", unsafe_allow_html=True)
-    with st.form("v_form"):
-        prompt = st.text_input("Creative Prompt")
-        if st.form_submit_button("Generate") and prompt:
-            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            res = client.images.generate(model="dall-e-3", prompt=prompt)
-            st.image(res.data[0].url)
 
 
 # --- 5. ROUTER ---
