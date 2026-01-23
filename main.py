@@ -6,199 +6,178 @@ import sqlite3
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 
-# --- 1. CYBER-CORE UI ARCHITECTURE ---
-st.set_page_config(page_title="CogniAI | Omni-Singularity", page_icon="♾️", layout="wide")
+# --- 1. SYSTEM CORE & PERSISTENCE ---
+st.set_page_config(page_title="CogniAI | God-Tier", page_icon="♾️", layout="wide")
 
+
+def init_db():
+    conn = sqlite3.connect('cogniai_omega.db', check_same_thread=False)
+    conn.execute('CREATE TABLE IF NOT EXISTS profile (id INT PRIMARY KEY, xp INT, lvl INT, rank TEXT)')
+    conn.execute('''CREATE TABLE IF NOT EXISTS memory_nodes
+                    (
+                        id
+                        INTEGER
+                        PRIMARY
+                        KEY,
+                        q
+                        TEXT,
+                        a
+                        TEXT,
+                        easiness
+                        REAL,
+                        interval
+                        INT,
+                        next_review
+                        DATE
+                    )''')
+    if not conn.execute('SELECT * FROM profile WHERE id=1').fetchone():
+        conn.execute('INSERT INTO profile VALUES (1, 0, 1, "NEOPHYTE")')
+    conn.commit()
+    return conn
+
+
+db = init_db()
+
+# --- 2. THE ULTIMATE UI (GOD MODE) ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;500&family=Space+Grotesk:wght@300;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;700&family=Fira+Code&display=swap');
 
     .stApp {
-        background: #000000;
-        background-image: radial-gradient(circle at 50% 0%, #00331a 0%, #000000 70%);
-        color: #00FF41;
+        background: #020202 !important;
+        background-image: radial-gradient(circle at 20% 30%, rgba(0, 255, 65, 0.05) 0%, transparent 40%),
+                          radial-gradient(circle at 80% 70%, rgba(0, 255, 65, 0.05) 0%, transparent 40%) !important;
+        color: #00FF41 !important;
         font-family: 'Space Grotesk', sans-serif;
     }
 
     .omni-panel {
-        background: rgba(0, 20, 10, 0.8);
+        background: rgba(0, 0, 0, 0.8);
         border: 1px solid #00FF41;
-        border-radius: 10px;
+        border-radius: 15px;
         padding: 25px;
-        margin-bottom: 20px;
-        box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
     }
 
     .stButton>button {
         background: transparent !important;
         color: #00FF41 !important;
         border: 1px solid #00FF41 !important;
-        border-radius: 5px !important;
-        font-family: 'Fira Code', monospace !important;
-        transition: 0.3s all;
-        width: 100%;
+        transition: 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 2px;
     }
 
     .stButton>button:hover {
         background: #00FF41 !important;
-        color: #000 !important;
-        box-shadow: 0 0 30px #00FF41;
+        color: black !important;
+        box-shadow: 0 0 40px #00FF41;
     }
-
-    .fira { font-family: 'Fira Code', monospace; color: #00FF41; }
-    [data-testid="stHeader"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
 
-# --- 2. PERSISTENCE ENGINE ---
-def init_db():
-    conn = sqlite3.connect('cogniai_omni.db', check_same_thread=False)
-    conn.execute('CREATE TABLE IF NOT EXISTS stats (id INT PRIMARY KEY, xp INT, lvl INT, rank TEXT)')
-    if not conn.execute('SELECT * FROM stats WHERE id=1').fetchone():
-        conn.execute('INSERT INTO stats VALUES (1, 0, 1, "INITIATE")')
-    conn.commit()
-    return conn
-
-
-# --- 3. HIGH-CAPACITY SYNTHESIS (RECURSIVE CHUNKING) ---
-def recursive_synthesis(text, creativity, velocity):
+# --- 3. RECURSIVE CHUNKING ENGINE (THE 12-PAGE FIX) ---
+def deep_sync(text, creativity, velocity):
     client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     model = "gpt-4o" if velocity == "Deep Logic" else "gpt-4o-mini"
 
-    # Break text into blocks to ensure NO content is missed (7000 chars each)
-    chunks = [text[i:i + 7000] for i in range(0, len(text), 7000)]
-    compiled = {"cards": [], "quiz": [], "map": "graph TD\n"}
+    # Split into 6000 character chunks to avoid missing data
+    chunks = [text[i:i + 6000] for i in range(0, len(text), 6000)]
 
-    prog_bar = st.progress(0)
     for i, chunk in enumerate(chunks):
         st.toast(f"Synchronizing Matrix Block {i + 1}...")
-        try:
-            res = client.chat.completions.create(
-                model=model,
-                temperature=creativity,
-                response_format={"type": "json_object"},
-                messages=[{
-                    "role": "system",
-                    "content": "You are CogniAI. Generate 15+ detailed flashcards and 5 exam questions for THIS CHUNK. Return JSON."
-                }, {"role": "user", "content": chunk}]
-            )
-            batch = json.loads(res.choices[0].message.content)
-            compiled["cards"].extend(batch.get("cards", []))
-            compiled["quiz"].extend(batch.get("quiz", []))
-            if i == 0: compiled["vision"] = batch.get("vision", "")
-        except:
-            continue
-        prog_bar.progress((i + 1) / len(chunks))
+        response = client.chat.completions.create(
+            model=model,
+            temperature=creativity,
+            response_format={"type": "json_object"},
+            messages=[{"role": "system",
+                       "content": "You are CogniAI. Generate 15+ flashcards and a detailed summary for this block. Return JSON: {'cards': [{'q':'','a':''}], 'summary': ''}"},
+                      {"role": "user", "content": chunk}]
+        )
+        data = json.loads(response.choices[0].message.content)
 
-    return compiled
+        for card in data['cards']:
+            db.execute('INSERT INTO memory_nodes (q, a, easiness, interval, next_review) VALUES (?,?,?,?,?)',
+                       (card['q'], card['a'], 2.5, 0, datetime.now().date()))
+        db.commit()
 
 
 # --- 4. NAVIGATION & STATE ---
-db = init_db()
 if 'page' not in st.session_state: st.session_state.page = "HOME"
-if 'memory' not in st.session_state: st.session_state.memory = None
-st.session_state.xp, st.session_state.lvl, st.session_state.rank = db.execute(
-    'SELECT xp, lvl, rank FROM stats WHERE id=1').fetchone()
+xp, lvl, rank = db.execute('SELECT xp, lvl, rank FROM profile WHERE id=1').fetchone()
 
-st.markdown("<h1 style='text-align:center; color:#00FF41; letter-spacing:10px;'>COGNIAI</h1>", unsafe_allow_html=True)
-nav = st.columns(4)
-nav_items = ["HOME", "STUDY LAB", "MATH NEXUS", "VISION"]
-for i, item in enumerate(nav_items):
-    if nav[i].button(item, use_container_width=True):
-        st.session_state.page = item
-        st.rerun()
+st.markdown("<h1 style='text-align:center; color:#00FF41; letter-spacing:15px;'>COGNIAI</h1>", unsafe_allow_html=True)
+cols = st.columns(4)
+nav = ["HOME", "STUDY LAB", "MATH NEXUS", "AI PHOTO GENERATOR"]
+for i, item in enumerate(nav):
+    if cols[i].button(item): st.session_state.page = item; st.rerun()
 
 
-# --- 5. PAGE MODULES ---
+# --- 5. MODULES ---
 
 def render_home():
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        st.markdown(
-            f"<div class='omni-panel'><h2>NEURAL STATUS: {st.session_state.rank}</h2><p>LEVEL: {st.session_state.lvl}</p>",
-            unsafe_allow_html=True)
-        st.progress(st.session_state.xp / 100)
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.video("https://www.youtube.com/watch?v=jfKfPfyJRdk")
-    with c2:
-        st.markdown(
-            "<div class='omni-panel'><h3>System Logs</h3><p class='fira'>- Context: Active<br>- Recursive Ingest: Ready<br>- Velocity: Swappable</p></div>",
-            unsafe_allow_html=True)
-        if st.button("☣️ PURGE CACHE"):
-            st.session_state.memory = None
-            st.rerun()
+    st.markdown(f"<div class='omni-panel'><h2>RANK: {rank} | LEVEL {lvl}</h2></div>", unsafe_allow_html=True)
+    st.video("https://www.youtube.com/watch?v=jfKfPfyJRdk")
 
 
-def render_study_lab():
+def render_lab():
     l, r = st.columns([1, 2])
     with l:
-        st.markdown("<div class='omni-panel'><h3>Ingestion Engine</h3>", unsafe_allow_html=True)
+        st.markdown("<div class='omni-panel'><h3>DATA INGEST</h3>", unsafe_allow_html=True)
         creativity = st.slider("Neural Entropy", 0.0, 1.0, 0.7)
-        velocity = st.radio("Processor Core", ["Deep Logic", "Velocity (Fast)"])
+        velocity = st.select_slider("Velocity", options=["Deep Logic", "Fast Velocity"])
+        src = st.selectbox("Source", ["PDF", "Web URL", "Text Paste"])
 
-        mode = st.selectbox("Input Source", ["PDF Upload", "Web URL", "Raw Paste"])
-        source_data = ""
-
-        if mode == "PDF Upload":
-            up = st.file_uploader("Upload Notes", type=['pdf'])
+        raw_data = ""
+        if src == "PDF":
+            up = st.file_uploader("Upload Notes")
             if up:
-                with pdfplumber.open(up) as pdf:
-                    source_data = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
-        elif mode == "Web URL":
-            url = st.text_input("Enter URL")
-            if url:
-                res = requests.get(url)
-                source_data = BeautifulSoup(res.text, 'html.parser').get_text()
-        elif mode == "Raw Paste":
-            source_data = st.text_area("Paste Content", height=200)
+                with pdfplumber.open(up) as pdf: raw_data = "\n".join(
+                    [p.extract_text() for p in pdf.pages if p.extract_text()])
+        elif src == "Web URL":
+            url = st.text_input("URL")
+            if url: raw_data = BeautifulSoup(requests.get(url).text, 'html.parser').get_text()
+        else:
+            raw_data = st.text_area("Paste", height=300)
 
-        if st.button("EXECUTE SYNC") and source_data:
-            st.session_state.memory = recursive_synthesis(source_data, creativity, velocity)
-            st.session_state.xp += 35
-            if st.session_state.xp >= 100: st.session_state.lvl += 1; st.session_state.xp = 0
-            db.execute('UPDATE stats SET xp=?, lvl=? WHERE id=1', (st.session_state.xp, st.session_state.lvl))
-            db.commit()
-            st.rerun()
+        if st.button("SYNCHRONIZE") and raw_data:
+            deep_sync(raw_data, creativity, velocity)
+            st.success("Matrix Updated.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with r:
-        if st.session_state.memory:
-            st.markdown("<div class='omni-panel'>", unsafe_allow_html=True)
-            t1, t2 = st.tabs([f"NODES ({len(st.session_state.memory['cards'])})", "PRACTICE EXAM"])
-            with t1:
-                for c in st.session_state.memory['cards']:
-                    with st.expander(f"SCAN: {c.get('q')}"): st.write(c.get('a'))
-            with t2:
-                for i, q in enumerate(st.session_state.memory['quiz']):
-                    st.write(f"**{i + 1}. {q.get('q')}**")
-                    st.radio("Analyze:", q.get('o', []), key=f"q_{i}")
-            st.markdown("</div>", unsafe_allow_html=True)
+        due = db.execute('SELECT id, q, a FROM memory_nodes WHERE next_review <= ?',
+                         (datetime.now().date(),)).fetchall()
+        st.markdown(f"<div class='omni-panel'><h3>RECALL NODES: {len(due)}</h3>", unsafe_allow_html=True)
+        for node in due[:10]:  # Show 10 at a time
+            with st.expander(f"SCAN: {node[1]}"):
+                st.write(node[2])
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_math():
     st.markdown("<div class='omni-panel'><h3>MATH NEXUS</h3>", unsafe_allow_html=True)
-    q = st.chat_input("Enter complex equation...")
+    q = st.chat_input("Enter problem...")
     if q:
         client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
         res = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": q}])
-        st.markdown(f"<div class='fira'>{res.choices[0].message.content}</div>", unsafe_allow_html=True)
+        st.write(res.choices[0].message.content)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_vision():
-    st.markdown("<div class='omni-panel'><h3>VISION STUDIO</h3>", unsafe_allow_html=True)
-    with st.form("vision"):
-        p = st.text_input("Manifest latent vision...")
-        if st.form_submit_button("MANIFEST"):
-            client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-            img = client.images.generate(model="dall-e-3", prompt=p)
-            st.image(img.data[0].url)
+def render_photo():
+    st.markdown("<div class='omni-panel'><h3>AI PHOTO GENERATOR</h3>", unsafe_allow_html=True)
+    p = st.text_input("Manifest Vision...")
+    if st.button("MANIFEST"):
+        client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        img = client.images.generate(model="dall-e-3", prompt=p)
+        st.image(img.data[0].url)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
 # --- ROUTER ---
-pages = {"HOME": render_home, "STUDY LAB": render_study_lab, "MATH NEXUS": render_math, "VISION": render_vision}
-pages.get(st.session_state.page, render_home)()
+router = {"HOME": render_home, "STUDY LAB": render_lab, "MATH NEXUS": render_math, "AI PHOTO GENERATOR": render_photo}
+router.get(st.session_state.page, render_home)()
