@@ -3,167 +3,190 @@ import openai
 import json
 import re
 import PyPDF2
+import sqlite3
 import time
 from datetime import datetime
 
-# --- 1. CYBER-MINIMALIST UI ENGINE ---
+# --- 1. CORE OS STYLING (THE HUD) ---
 st.set_page_config(page_title="INFINITY OS", page_icon="🧬", layout="wide")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap');
-
     :root { --neon: #00f2ff; --void: #050505; --plasma: #7000ff; }
-
     html, body, [data-testid="stAppViewContainer"] {
         background: var(--void) !important;
         background-image: radial-gradient(circle at 50% 10%, rgba(112, 0, 255, 0.15) 0%, transparent 50%) !important;
         color: #e0e0e0 !important; font-family: 'JetBrains Mono', monospace;
     }
-
-    /* NEON HUD COMPONENTS */
-    .stTabs [data-baseweb="tab-list"] { background-color: transparent; border-bottom: 1px solid rgba(0, 242, 255, 0.2); }
-    .stTabs [data-baseweb="tab"] { color: #666 !important; transition: 0.3s; }
-    .stTabs [aria-selected="true"] { color: var(--neon) !important; text-shadow: 0 0 10px var(--neon); }
-
-    .bento-node {
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px; padding: 25px;
-        box-shadow: inset 0 0 20px rgba(112, 0, 255, 0.05);
-    }
-
     .stButton>button {
         background: linear-gradient(45deg, var(--plasma), var(--neon)) !important;
         border: none !important; border-radius: 12px !important; color: white !important;
-        font-weight: 700 !important; letter-spacing: 1px; width: 100%;
+        font-weight: 700 !important; letter-spacing: 1px; width: 100%; transition: 0.3s;
     }
+    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 0 20px var(--plasma); }
+    .bento-node {
+        background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px; padding: 25px; margin-bottom: 20px;
+    }
+    [data-testid="stHeader"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
 
-# --- 2. THE NEURAL CORE (SCHEMA GUARDIAN + AUTO-PARSE) ---
-def neural_engine(input_text, mode="sync"):
+# --- 2. DATABASE ARCHIVE (PERSISTENCE LAYER) ---
+def init_db():
+    conn = sqlite3.connect('infinity_archive.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS user_stats
+                 (
+                     id
+                     INTEGER
+                     PRIMARY
+                     KEY,
+                     xp
+                     INTEGER,
+                     lvl
+                     INTEGER,
+                     last_sync
+                     TEXT
+                 )''')
+    c.execute('SELECT count(*) FROM user_stats')
+    if c.fetchone()[0] == 0:
+        c.execute('INSERT INTO user_stats (xp, lvl, last_sync) VALUES (0, 1, ?)', (str(datetime.now()),))
+    conn.commit()
+    return conn
+
+
+def load_stats():
+    conn = init_db()
+    return conn.execute('SELECT xp, lvl FROM user_stats WHERE id=1').fetchone()
+
+
+def save_stats(xp, lvl):
+    conn = init_db()
+    conn.execute('UPDATE user_stats SET xp=?, lvl=?, last_sync=? WHERE id=1', (xp, lvl, str(datetime.now())))
+    conn.commit()
+
+
+# --- 3. NEURAL ENGINE (THE BRAIN) ---
+def neural_engine(input_text):
     try:
         client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        sys_msg = "Return JSON ONLY. Keys: 'mindmap' (Mermaid code), 'cards' (Q/A), 'quiz' (MCQ), 'summary'."
-
         res = client.chat.completions.create(
             model="gpt-4o",
             response_format={"type": "json_object"},
-            messages=[{"role": "system", "content": sys_msg}, {"role": "user", "content": input_text[:5000]}]
+            messages=[
+                {"role": "system",
+                 "content": "Return JSON. Keys: 'mindmap' (Mermaid code), 'cards' (Q&A), 'quiz' (MCQ with 'q', 'o', 'a' keys). Use LaTeX for math."},
+                {"role": "user", "content": f"Analyze and deconstruct: {input_text[:5000]}"}
+            ]
         )
-
-        raw = res.choices[0].message.content
-        data = json.loads(re.sub(r'```json|```', '', raw).strip())
-
-        # Normalize Keys (The Schema Guardian)
+        data = json.loads(res.choices[0].message.content)
         return {
-            "mindmap": data.get("mindmap") or "graph TD\nA[Topic] --> B[Detail]",
+            "mindmap": data.get("mindmap", "graph TD\nA[No Data]"),
             "cards": data.get("cards") or data.get("flashcards") or [],
-            "quiz": data.get("quiz") or data.get("questions") or [],
-            "summary": data.get("summary") or "Sync Complete."
+            "quiz": data.get("quiz") or []
         }
     except Exception as e:
-        return {"error": str(e)}
+        st.error(f"Neural Core Error: {e}")
+        return None
 
 
-# --- 3. PERSISTENT STATE ---
-states = {'active_page': 'HOME', 'xp': 0, 'lvl': 1, 'data': None}
-for k, v in states.items():
-    if k not in st.session_state: st.session_state[k] = v
+# --- 4. SESSION INITIALIZATION ---
+db_xp, db_lvl = load_stats()
+if 'xp' not in st.session_state: st.session_state.xp = db_xp
+if 'lvl' not in st.session_state: st.session_state.lvl = db_lvl
+if 'active_page' not in st.session_state: st.session_state.active_page = "HOME"
+if 'data' not in st.session_state: st.session_state.data = None
 
-# --- 4. NAVIGATION HUD ---
-st.markdown("<h2 style='text-align:center; color:var(--neon);'>∞ INFINITY</h2>", unsafe_allow_html=True)
-cols = st.columns([1, 1, 1, 1])
-if cols[0].button("🛰️ HOME"): st.session_state.active_page = "HOME"
-if cols[1].button("🧠 LAB"): st.session_state.active_page = "LAB"
-if cols[2].button("🔭 VISION"): st.session_state.active_page = "VISION"
-if cols[3].button("⚡ MATH"): st.session_state.active_page = "MATH"
+# --- 5. NAVIGATION ---
+st.markdown("<h1 style='text-align:center; color:var(--neon); letter-spacing:5px;'>∞ INFINITY OS</h1>",
+            unsafe_allow_html=True)
+nav_cols = st.columns(4)
+nav_items = ["HOME", "STUDY LAB", "VISION", "MATH"]
+for i, item in enumerate(nav_items):
+    if nav_cols[i].button(item):
+        st.session_state.active_page = item
+        st.rerun()
 
 
-# --- 5. PAGE MODULES ---
+# --- 6. MODULES ---
 
 def render_home():
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     c1, c2 = st.columns([2, 1])
     with c1:
-        st.markdown(f"<h1>WELCOME TO LVL {st.session_state.lvl}</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='font-size: 70px;'>LEVEL {st.session_state.lvl}</h1>", unsafe_allow_html=True)
         st.progress(st.session_state.xp / 100)
-        st.write(f"Neural Sync XP: {st.session_state.xp}/100")
+        st.write(f"Neural Sync Progress: {st.session_state.xp}/100 XP")
     with c2:
         st.markdown(
-            "<div class='bento-node'><h3>System Status</h3><p>🟢 GPT-4o Online</p><p>🟢 Vision Engine Active</p></div>",
+            "<div class='bento-node'><h3>System Hub</h3><p>🟢 Database: Active</p><p>🟢 GPT-4o: Connected</p></div>",
             unsafe_allow_html=True)
 
 
 def render_lab():
-    st.title("Neural Study Lab")
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
-        st.markdown("<div class='bento-node'>", unsafe_allow_html=True)
-        file = st.file_uploader("Upload Knowledge (PDF)", type=["pdf"])
-        voice = st.audio_input("Voice Ingest")
-
+    col_in, col_out = st.columns([1, 2])
+    with col_in:
+        st.markdown("<div class='bento-node'><h3>Ingest</h3>", unsafe_allow_html=True)
+        file = st.file_uploader("PDF Knowledge", type=["pdf"])
+        voice = st.audio_input("Voice Memo")
         if st.button("EXECUTE SYNC"):
             content = ""
             if file:
-                pdf = PyPDF2.PdfReader(file)
-                content = "".join([p.extract_text() for p in pdf.pages])
+                reader = PyPDF2.PdfReader(file)
+                content = "".join([p.extract_text() for p in reader.pages])
             elif voice:
                 client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 trans = client.audio.transcriptions.create(model="whisper-1", file=voice)
                 content = trans.text
 
             if content:
-                with st.spinner("Synthesizing..."):
-                    st.session_state.data = neural_engine(content)
-                    st.session_state.xp += 20
-                    st.rerun()
+                st.session_state.data = neural_engine(content)
+                st.session_state.xp += 25
+                if st.session_state.xp >= 100:
+                    st.session_state.lvl += 1
+                    st.session_state.xp = 0
+                save_stats(st.session_state.xp, st.session_state.lvl)
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with col2:
+    with col_out:
         if st.session_state.data:
-            t1, t2, t3 = st.tabs(["🧠 MIND MAP", "🗂️ CARDS", "🛡️ EXAM"])
+            t1, t2, t3 = st.tabs(["MIND MAP", "RECALL", "EXAM"])
             with t1:
                 st.markdown(f"```mermaid\n{st.session_state.data['mindmap']}\n```")
             with t2:
                 for c in st.session_state.data['cards']:
                     with st.expander(c.get('q', 'Question')): st.write(c.get('a', 'Answer'))
             with t3:
-                score = 0
                 for i, q in enumerate(st.session_state.data['quiz']):
                     st.write(f"**{i + 1}. {q.get('q')}**")
-                    ans = st.radio("Response:", q.get('o', []), key=f"q_{i}")
-                    if ans == q.get('a'): score += 1
-                if st.button("Finalize Exam"):
-                    st.balloons()
-                    st.session_state.xp += 30
+                    st.radio("Options:", q.get('o', []), key=f"q_v3_{i}")
 
 
 def render_vision():
-    st.title("Vision Studio")
-    prompt = st.text_input("Manifest reality...")
+    p = st.text_input("Prompt for DALL-E 3")
     if st.button("GENERATE"):
         client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        img = client.images.generate(model="dall-e-3", prompt=prompt)
-        st.image(img.data[0].url)
+        res = client.images.generate(model="dall-e-3", prompt=p)
+        st.image(res.data[0].url)
 
 
 def render_math():
-    st.title("Math Terminal")
-    p = st.chat_input("Enter equation...")
-    if p:
+    query = st.chat_input("Enter math problem...")
+    if query:
         client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        res = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": p}])
-        st.write(res.choices[0].message.content)
+        res = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": query}])
+        st.markdown(res.choices[0].message.content)
 
 
-# --- 6. ROUTER ---
-if st.session_state.xp >= 100:
-    st.session_state.lvl += 1
-    st.session_state.xp = 0
-
-routes = {"HOME": render_home, "LAB": render_lab, "VISION": render_vision, "MATH": render_math}
-routes[st.session_state.active_page]()
+# --- 7. ROUTER ---
+routes = {
+    "HOME": render_home,
+    "STUDY LAB": render_lab,
+    "VISION": render_vision,
+    "MATH": render_math
+}
+routes.get(st.session_state.active_page, render_home)()
